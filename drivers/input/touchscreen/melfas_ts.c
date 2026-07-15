@@ -451,17 +451,9 @@ static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 #define TOUCH_ON  1
 #define TOUCH_OFF 0
 static struct regulator *touch_regulator;
-<<<<<<< HEAD
-/*
- * GPIO FIX: gpio_request/free her cagride yapiliyordu.
- * gpio_free sonrasi pin floating kalabilir, IC guc hatti
- * gercekten kesilmiyordu. GPIO'yu bir kez request edip
- * kalici tutuyoruz, sadece output degerini degistiriyoruz.
- */
+
 static int tsp_pwr_gpio_initialized = 0;
 
-=======
->>>>>>> origin/master
 static void ts_power_enable(int en)
 {
 	printk(KERN_ERR "%s %s\n", __func__, (en) ? "on" : "off");
@@ -507,8 +499,6 @@ static void ts_power_enable(int en)
 		}
 	}
 #else
-<<<<<<< HEAD
-	/* GPIO'yu ilk kullanımda bir kez request et, sonra tutmaya devam et */
 	if (!tsp_pwr_gpio_initialized) {
 		if (gpio_request(TSP_PWR_LDO_GPIO, "tsp-power") < 0) {
 			printk(KERN_ERR "%s: gpio_request(%d) failed\n",
@@ -520,17 +510,7 @@ static void ts_power_enable(int en)
 		printk(KERN_ERR "%s: GPIO %d initialized\n",
 			__func__, TSP_PWR_LDO_GPIO);
 	}
-	/* Sadece output degerini degistir — gpio_free YAPMA */
 	gpio_set_value(TSP_PWR_LDO_GPIO, en ? 1 : 0);
-=======
-	gpio_request(TSP_PWR_LDO_GPIO, "tsp-power");
-	if (en) {
-		gpio_direction_output(TSP_PWR_LDO_GPIO, 1);
-	} else {
-		gpio_direction_output(TSP_PWR_LDO_GPIO, 0);
-	}
-	gpio_free(TSP_PWR_LDO_GPIO);
->>>>>>> origin/master
 #endif
 }
 
@@ -3488,62 +3468,31 @@ static int melfas_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 }
 static int melfas_ts_resume(struct i2c_client *client)
 {
-<<<<<<< HEAD
 	extern unsigned char TSP_PanelVersion;
 	extern unsigned char TSP_PhoneVersion;
 	struct melfas_ts_data *ts = i2c_get_clientdata(client);
 	u8 buf[1];
 	int ret;
-=======
-
-	extern unsigned char TSP_PanelVersion;
-	extern unsigned char TSP_PhoneVersion;
-	struct melfas_ts_data *ts = i2c_get_clientdata(client);
-	u8 read_data_buf[1] = {0,};
-	int ret, i;
-	int crc_b1, crc_b2;
->>>>>>> origin/master
 #if 0
 	bool ta_status = 0;
 #endif
-
 #if 0
 	TSP_boost(ts, is_boost);
 #endif
-<<<<<<< HEAD
-
-	/*
-	 * RESUME FIX v2: Zorunlu guc dongusu + I2C dogrulama
-	 *
-	 * Sorun: Suspend sirasinda IC'ye sleep komutu gonderiliyor
-	 * ama guc hatti KESILMIYOR (suspend'de ts_power_enable(0)
-	 * var ama IC internal state'i kilitli kalabiliyor).
-	 * Resume'da ts_power_enable(1) cagrisi GPIO zaten HIGH
-	 * oldugunda hicbir sey degistirmiyor — IC hala kilitli.
-	 *
-	 * Cozum: Resume basinda her zaman once guc kes, IC'yi
-	 * fiziksel olarak sifirla, sonra ac. I2C probe ile dogrula.
-	 */
-
-	/* 1. Once guc kes — IC'yi fiziksel olarak sifirla */
 	printk(KERN_ERR "[TSP] %s: forcing power cycle for clean wake\n",
 		__func__);
 	ts_power_enable(0);
-	msleep(100);	/* IC guc hattinin gercekten dusmesi icin bekle */
+	msleep(100);
 
-	/* 2. Guc ac ve IC'nin ayaga kalkmasini bekle */
 	ts_power_enable(1);
-	msleep(200);	/* MMS100S datasheet: power-on reset ~150ms ister */
+	msleep(200);
 
-	/* 3. I2C probe — IC gercekten cevap veriyor mu? */
 	buf[0] = MIP_TSP_REVISION;
 	ret = i2c_master_send(client, buf, 1);
 
 	if (ret < 0) {
-		/* 4. Hala cevap yok — ikinci guc dongusu dene */
 		printk(KERN_ERR "[TSP] %s: I2C probe failed (%d), "
 			"trying second power cycle...\n", __func__, ret);
-
 		ts_power_enable(0);
 		msleep(150);
 		ts_power_enable(1);
@@ -3551,7 +3500,6 @@ static int melfas_ts_resume(struct i2c_client *client)
 
 		buf[0] = MIP_TSP_REVISION;
 		ret = i2c_master_send(client, buf, 1);
-
 		if (ret < 0) {
 			printk(KERN_ERR "[TSP] %s: IC recovery FAILED (%d). "
 				"Touch may be dead until reboot.\n",
@@ -3565,19 +3513,10 @@ static int melfas_ts_resume(struct i2c_client *client)
 			__func__);
 	}
 
-	/* 5. Her durumda normal init akisini tamamla */
 	mms_set_noise_mode(ts);
 	tsp_enabled = true;
 	printk(KERN_ERR "[TSP] %s enable IRQ( %d) FW:0x%x\n",
 		__func__, __LINE__, TSP_PanelVersion);
-=======
-	ts_power_enable(1);
-
-	msleep(50);
-	mms_set_noise_mode(ts);
-	tsp_enabled = true;
-	printk(KERN_ERR "[TSP] %s enable IRQ( %d) FW:0x%x\n", __func__, __LINE__,TSP_PanelVersion);
->>>>>>> origin/master
 	enable_irq(client->irq);
 #if 0
 	if (ts->read_ta_status) {
@@ -3592,18 +3531,6 @@ static int melfas_ts_resume(struct i2c_client *client)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void melfas_ts_early_suspend(struct early_suspend *h)
 {
-<<<<<<< HEAD
-	/*
-	 * NOSLEEP FIX: Dokunmatik IC'yi uyutmuyoruz.
-	 *
-	 * Sorun: suspend/resume dongusu sirasinda I2C bus clock domain
-	 * gecikmeli ayaga kalkiyor (autosuspend_disable 445-662ms gec).
-	 * Bu surede I2C probe -6 ENXIO donduruyordu, IC kilitli kaliyordu.
-	 *
-	 * Cozum: IC'yi hic uyutma. Ekran kapaninca dokunmatik hala aktif,
-	 * guc tusu ile uyandirinca hic bekleme yok, sorun olusmuyor.
-	 * Batarya hafifce fazla harcanir ama bug tamamen ortadan kalkar.
-	 */
 	printk(KERN_ERR "[TSP] %s: skipping suspend, touch IC stays awake\n",
 		__func__);
 }
@@ -3615,17 +3542,6 @@ static void melfas_ts_late_resume(struct early_suspend *h)
 	 */
 	printk(KERN_ERR "[TSP] %s: skipping resume, touch IC was never suspended\n",
 		__func__);
-=======
-	struct melfas_ts_data *ts;
-	ts = container_of(h, struct melfas_ts_data, early_suspend);
-	melfas_ts_suspend(ts->client, PMSG_SUSPEND);
-}
-static void melfas_ts_late_resume(struct early_suspend *h)
-{
-	struct melfas_ts_data *ts;
-	ts = container_of(h, struct melfas_ts_data, early_suspend);
-	melfas_ts_resume(ts->client);
->>>>>>> origin/master
 }
 #endif
 static const struct i2c_device_id melfas_ts_id[] = {
